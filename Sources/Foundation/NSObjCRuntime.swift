@@ -207,17 +207,29 @@ internal func NSInvalidArgument(_ message: String, method: String = #function, f
 }
 
 internal struct _CFInfo {
-    // This must match _CFRuntimeBase
-    var info: UInt32
-    var pad : UInt32
+    // This must match _CFRuntimeBase._cfinfoa, which is a single _Atomic(uint64_t).
+    //
+    // The CF runtime reads the typeID from bits 17:8 of the 64-bit *integer value*
+    // loaded by atomic_load — i.e. the arithmetic value, not a memory-byte position.
+    // Using two UInt32 fields (info + pad) was correct on little-endian targets
+    // because the Swift struct stored the low UInt32 first in memory, which is also
+    // the least-significant word of the uint64_t on little-endian.  On big-endian
+    // platforms (s390x) the low UInt32 occupies the *most-significant* 4 bytes of
+    // the 64-bit integer as seen by atomic_load, so bits 17:8 of the integer value
+    // come out as zero, causing __CFTypeIDFromInfo() to return 0 (_kCFRuntimeIDNotAType)
+    // and _CFDeinit() to call the __HALT finaliser → SIGILL.
+    //
+    // Storing the value as a single UInt64 is endian-neutral: atomic_load always
+    // returns the same arithmetic value regardless of byte order, which is exactly
+    // what __CFTypeIDFromInfo() relies on.
+    var info: UInt64
     init(typeID: CFTypeID) {
-        // This matches what _CFRuntimeCreateInstance does to initialize the info value
-        info = UInt32((UInt32(typeID) << 8) | (UInt32(0x80)))
-        pad = 0
+        // Matches _CFRuntimeCreateInstance (DEPLOYMENT_RUNTIME_SWIFT fast path):
+        //   *cfinfop = ((typeID << 8) | 0x80);
+        info = UInt64(typeID) << 8 | 0x80
     }
     init(typeID: CFTypeID, extra: UInt32) {
-        info = UInt32((UInt32(typeID) << 8) | (UInt32(0x80)))
-        pad = extra
+        info = UInt64(typeID) << 8 | 0x80 | UInt64(extra)
     }
 }
 
