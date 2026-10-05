@@ -169,24 +169,21 @@ struct __CFConstStr {
         uint64_t _cfinfoa;
     } _base;
     uint8_t *_ptr;
-#if TARGET_RT_64_BIT && defined(__BIG_ENDIAN__)
+#if TARGET_RT_64_BIT
     uint64_t _length;
-#else // 32-bit:
+#else
     uint32_t _length;
-#endif // TARGET_RT_64_BIT && defined(__BIG_ENDIAN__)
+#endif
 };
 
-#if __BIG_ENDIAN__
-#define CFSTR(cStr)  ({ \
-    static struct __CFConstStr str = {{(uintptr_t)&_CF_CONSTANT_STRING_SWIFT_CLASS, _CF_CONSTANT_OBJECT_STRONG_RC, 0x00000000C8070000}, (uint8_t *)(cStr), sizeof(cStr) - 1}; \
-    (CFStringRef)&str; \
-})
-#else // Little endian:
+// _cfinfoa is a single _Atomic(uint64_t) accessed through __CFRuntimeGetValue as an
+// arithmetic integer value — endianness-neutral.  The info flags (0xC8) must sit at
+// bits 7:0 of that integer and the type ID (7 = CFString) at bits 17:8.  This is the
+// same constant on every platform; no endianness split is required or correct.
 #define CFSTR(cStr)  ({ \
     static struct __CFConstStr str = {{(uintptr_t)&_CF_CONSTANT_STRING_SWIFT_CLASS, _CF_CONSTANT_OBJECT_STRONG_RC, 0x07C8}, (uint8_t *)(cStr), sizeof(cStr) - 1}; \
     (CFStringRef)&str; \
 })
-#endif // __BIG_ENDIAN__
 
 #else
 

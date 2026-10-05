@@ -81,13 +81,15 @@ internal final class _NSCFConstantString : _NSCFString {
         return Unmanaged.passUnretained(self).toOpaque()
     }
 
-#if arch(s390x)
-    internal var _length : UInt64 {
-        return _lenPtr.load(fromByteOffset: _lenOffset, as: UInt64.self)
-    }
-#else
+#if arch(arm) || arch(i386)
+    // 32-bit: __CFConstStr._length is uint32_t
     internal var _length : UInt32 {
         return _lenPtr.load(fromByteOffset: _lenOffset, as: UInt32.self)
+    }
+#else
+    // 64-bit: __CFConstStr._length is uint64_t on all 64-bit platforms
+    internal var _length : UInt64 {
+        return _lenPtr.load(fromByteOffset: _lenOffset, as: UInt64.self)
     }
 #endif
     
